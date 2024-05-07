@@ -1,140 +1,116 @@
-### PROVIDER
-provider "google" {
-  project = var.project-id
-  region  = var.region
-  zone    = var.zone
+# PROVIDER
+provider "aws" {
+  region = "us-east-2"
 }
 
-### NETWORK
-data "google_compute_network" "default" {
-  name                    = "default"
+# NETWORK
+resource "aws_vpc" "default" {
+  cidr_block = "10.0.0.0/16"
 }
 
-## SUBNET
-resource "google_compute_subnetwork" "subnet-1" {
-  name                     = var.subnet-name
-  ip_cidr_range            = var.subnet-cidr
-  network                  = data.google_compute_network.default.self_link
-  region                   = var.region
-  private_ip_google_access = var.private_google_access
+# SUBNET
+resource "aws_subnet" "subnet-1" {
+  vpc_id            = aws_vpc.default.id
+  cidr_block        = "10.0.1.0/24"  # Adjusted subnet CIDR block
+  availability_zone = "us-east-2a"
 }
 
-resource "google_compute_firewall" "default" {
-  name    = "test-firewall"
-  network = data.google_compute_network.default.self_link
+# SECURITY GROUP
+resource "aws_security_group" "sg-01" {
+  name        = "test-firewall"
+  description = "Test Security Group"
+  vpc_id      = aws_vpc.default.id
 
-  allow {
-    protocol = "icmp"
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  allow {
-    protocol = "tcp"
-    ports    = var.firewall-ports
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  source_tags = var.compute-source-tags
+  ingress {
+    from_port   = 1000
+    to_port     = 2000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    protocol    = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+    from_port   = -1
+    to_port     = -1
+  }
 }
 
-### COMPUTE
-## NGINX PROXY
-resource "google_compute_instance" "nginx_instance" {
-  name         = "nginx-proxy"
-  machine_type = var.environment_machine_type[var.target_environment]
-  labels = {
-    environment = var.environment_map[var.target_environment]
-  }
-  tags = var.compute-source-tags
 
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
+# COMPUTE
+# NGINX PROXY
+resource "aws_instance" "nginx_instance" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "nginx-proxy"
+    web  = "true"
   }
 
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-    access_config {
-  
-    }
-  }
+  subnet_id = aws_subnet.subnet-1.id
 }
 
 # WEB1
-resource "google_compute_instance" "web1" {
-  name         = "web1"
-  machine_type = var.environment_machine_type[var.target_environment]
-  labels = {
-    environment = var.environment_map[var.target_environment]
-  }
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
+resource "aws_instance" "web1" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "web1"
   }
 
-  network_interface {
-    # A default network is created for all GCP projects
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-  }
-}
-## WEB2
-resource "google_compute_instance" "web2" {
-  name         = "web2"
-  machine_type = var.environment_machine_type[var.target_environment]
-  labels = {
-    environment = var.environment_map[var.target_environment]
-  }
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
-  }
-
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-  }
-}
-## WEB3
-resource "google_compute_instance" "web3" {
-  name         = "web3"
-  machine_type = var.environment_machine_type[var.target_environment]
-  labels = {
-    environment = var.environment_map[var.target_environment]
-  }
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
-  }
-
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-  }  
+  subnet_id = aws_subnet.subnet-1.id
 }
 
-## DB
-resource "google_compute_instance" "mysqldb" {
-  name         = "mysqldb"
-  machine_type = var.environment_machine_type[var.target_environment]
-  labels = {
-    environment = var.environment_map[var.target_environment]
-  }
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
+# WEB2
+resource "aws_instance" "web2" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "web2"
   }
 
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-  }  
+  subnet_id = aws_subnet.subnet-1.id
+}
+
+# WEB3
+resource "aws_instance" "web3" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "web3"
+  }
+
+  subnet_id = aws_subnet.subnet-1.id
+}
+
+# DB
+resource "aws_instance" "mysqldb" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "mysqldb"
+  }
+
+  subnet_id = aws_subnet.subnet-1.id
 }
