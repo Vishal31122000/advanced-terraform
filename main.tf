@@ -1,125 +1,116 @@
-### PROVIDER
-provider "google" {
-  project = "advancedterraform" #replace this with your project-id
-  region  = "us-central1"
-  zone    = "us-central1-a"
+# PROVIDER
+provider "aws" {
+  region = "us-east-2"
 }
 
-### NETWORK
-data "google_compute_network" "default" {
-  name                    = "default"
+# NETWORK
+resource "aws_vpc" "default" {
+  cidr_block = "10.0.0.0/16"
 }
 
-## SUBNET
-resource "google_compute_subnetwork" "subnet-1" {
-  name                     = "subnet1"
-  ip_cidr_range            = "10.127.0.0/20"
-  network                  = data.google_compute_network.default.self_link
-  region                   = "us-central1"
-  private_ip_google_access = true
+# SUBNET
+resource "aws_subnet" "subnet-1" {
+  vpc_id            = aws_vpc.default.id
+  cidr_block        = "10.0.1.0/24"  # Adjusted subnet CIDR block
+  availability_zone = "us-east-2a"
 }
 
-resource "google_compute_firewall" "default" {
-  name    = "test-firewall"
-  network = data.google_compute_network.default.self_link
+# SECURITY GROUP
+resource "aws_security_group" "sg-01" {
+  name        = "test-firewall"
+  description = "Test Security Group"
+  vpc_id      = aws_vpc.default.id
 
-  allow {
-    protocol = "icmp"
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  allow {
-    protocol = "tcp"
-    ports    = ["80", "8080", "1000-2000", "22"]
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  source_tags = ["web"]
-}
-
-### COMPUTE
-## NGINX PROXY
-resource "google_compute_instance" "nginx_instance" {
-  name         = "nginx-proxy"
-  machine_type = "f1-micro"
-  tags = ["web"]
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
+  ingress {
+    from_port   = 1000
+    to_port     = 2000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-    access_config {
-      
-    }
-  }
-}
-
-## WEB1
-resource "google_compute_instance" "web1" {
-  name         = "web1"
-  machine_type = "f1-micro"
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  network_interface {
-    # A default network is created for all GCP projects
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
+  ingress {
+    protocol    = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+    from_port   = -1
+    to_port     = -1
   }
 }
-## WEB2
-resource "google_compute_instance" "web2" {
-  name         = "web2"
-  machine_type = "f1-micro"
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
+
+
+# COMPUTE
+# NGINX PROXY
+resource "aws_instance" "nginx_instance" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "nginx-proxy"
+    web  = "true"
   }
 
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-  }
-}
-## WEB3
-resource "google_compute_instance" "web3" {
-  name         = "web3"
-  machine_type = "f1-micro"
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
-  }
-
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-  }  
+  subnet_id = aws_subnet.subnet-1.id
 }
 
-## DB
-resource "google_compute_instance" "mysqldb" {
-  name         = "mysqldb"
-  machine_type = "f1-micro"
-  
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
+# WEB1
+resource "aws_instance" "web1" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "web1"
   }
 
-  network_interface {
-    network = data.google_compute_network.default.self_link
-    subnetwork = google_compute_subnetwork.subnet-1.self_link
-  }  
+  subnet_id = aws_subnet.subnet-1.id
+}
+
+# WEB2
+resource "aws_instance" "web2" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "web2"
+  }
+
+  subnet_id = aws_subnet.subnet-1.id
+}
+
+# WEB3
+resource "aws_instance" "web3" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "web3"
+  }
+
+  subnet_id = aws_subnet.subnet-1.id
+}
+
+# DB
+resource "aws_instance" "mysqldb" {
+  ami           = "ami-09040d770ffe2224f"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "mysqldb"
+  }
+
+  subnet_id = aws_subnet.subnet-1.id
 }
